@@ -1,0 +1,287 @@
+setwd ("C:\\MICA\\Trimester 4\\AMMA\\2017_AMMA Data\\data_2017")
+df.client <- read.csv('bank_client.csv')
+str(df.client)
+df.attr <- read.csv('bank_other_attributes.csv')
+str(df.attr)
+
+df.campaign <- read.csv('latest_campaign.csv')
+str(df.campaign)
+
+df.campOutcome <- read.csv('campaign_outcome.csv')
+str(df.campOutcome)
+
+#campaign data using all tables joined together
+df.temp1 <- merge(df.client, df.campaign, by = 'Cust_id', all.x = TRUE)
+df.temp2 <- merge(df.temp1, df.attr, by = 'Cust_id', all.x = TRUE)
+df.data <- merge(df.temp2, df.campOutcome, by = 'Cust_id', all.x = TRUE)
+length(unique(df.data$Cust_id)) == nrow(df.data)
+#check for duplicate cust ID
+
+#remove temporary tables
+rm(df.temp1,df.temp2)
+
+
+##Rajneesh sir's code##
+
+
+summary(df.data)
+
+str(df.data)
+
+CrossTable(df.data$y)
+
+
+# split the data into training and test
+set.seed(1234) # for reproducibility
+df.data$rand <- runif(nrow(df.data))
+df.train <- df.data[df.data$rand <= 0.7,]
+df.test <- df.data[df.data$rand > 0.7,]
+nrow(df.train)
+nrow(df.test)
+
+# how the categorical variables are distributed and are related with target outcome
+CrossTable(df.train$job, df.train$y)
+CrossTable(df.train$marital, df.train$y)
+CrossTable(df.train$education, df.train$y)
+CrossTable(df.train$default, df.train$y)
+CrossTable(df.train$housing, df.train$y)
+CrossTable(df.train$loan, df.train$y)
+CrossTable(df.train$poutcome, df.train$y)
+
+# let see how the numerical variables are distributed
+hist(df.train$age)
+hist(df.train$balance)
+hist(df.train$duration)
+hist(df.train$campaign)
+hist(df.train$pdays)
+hist(df.train$previous)
+describe(df.train[c("age", "balance", "duration", "campaign", "pdays", "previous")])
+
+# running a full model  #
+
+df.train$yact = ifelse(df.train$y == 'yes',1,0)
+full.model <- glm(formula = yact ~ age + balance + duration + campaign + pdays + previous +
+                    job + marital + education + default + housing + loan + poutcome, 
+                  data=df.train, family = binomial)
+summary(full.model)
+
+# check for vif
+fit <- lm(formula <- yact ~ age + balance + duration + campaign + pdays + previous +
+            job + marital + education + default + housing + loan + poutcome, 
+          data=df.train)
+??vif
+vif(fit)
+
+# automated variable selection - Backward
+backward <- step(full.model, direction = 'backward')
+summary(backward)
+
+# training probabilities and roc
+df.train$prob = predict(full.model, type=c("response"))
+class(df.train)
+nrow(df.train)
+q <- roc(y ~ prob, data = df.train)
+plot(q)
+auc(q)
+
+# variable importance
+varImp(full.model, scale = FALSE)
+
+# confusion matrix
+df.train$ypred = ifelse(df.train$prob>=.5,'pred_yes','pred_no')
+table(df.train$ypred,df.train$y)
+
+#ks plot
+ks_plot(actuals=df.train$y, predictedScores=df.train$ypred)
+
+
+#Unable to figure why is vif not running
+
+##### Jyo's code #####
+
+View(df.data)
+
+
+# Loading df.data into df.data_final
+df.data_final <- df.data
+df.data_final$yact = ifelse(df.data$y == 'yes',1,0) #Loading 1s for 'yes' and 0s for 'no'
+nrow(df.data_final)
+
+#Removing rows with non-available data entry
+
+df.data_final <- df.data_final[!apply(df.data_final[,c("age", "balance", "duration", "campaign", "pdays", "previous", "job","marital", "education", "default", "housing", "loan", "poutcome")], 1, anyNA),]
+nrow(df.data_final)
+View(df.data_final)
+
+set.seed(1234) # for reproducibility
+df.data_final$rand <- runif(nrow(df.data_final))
+
+#Training set = 90% of the entire data set #Test set = 10% of the entire data set
+df.train_jmodel <- df.data_final[df.data_final$rand <= 0.9,]
+df.test_jmodel <- df.data_final[df.data_final$rand > 0.9,]
+nrow(df.train_jmodel)
+
+#Building a tentative model - with all the insignificant variables
+result_tentative_trainjmodel <- glm(formula = yact ~ age + balance + duration + campaign + pdays + previous +
+                                      job + marital + education + default + housing + loan + poutcome, 
+                                    data=df.train_jmodel, family = binomial)
+summary(result_tentative_trainjmodel)
+
+
+#Removing insignificant variables based on p-values
+
+#Remove-1. Unknown job
+df.train_jmodel_onlysig <- df.train_jmodel[df.train_jmodel$job!="unknown",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + pdays + previous +
+                                           job + marital + education + default + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel[df.test_jmodel$job!="unknown",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+
+#remove-2. pdays
+df.train_jmodel_onlysig$pdays <-NULL
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + default + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig$pdays <-NULL
+
+summary(result_tentative_trainjmodel_sig1)
+
+
+#Remove- 3. MArital status 'single'
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$marital!="single",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + default + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$marital!="single",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#Remove- 4.Job management
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$job!="management",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$job!="management",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#Remove- 5. 'default'
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$marital!="yes",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$marital!="yes",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#remove- 6. 'unknown' education
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$education!="unknown",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$education!="unknown",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#remove- 7.  Poutcome Other
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$poutcome!="other",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$poutcome!="other",]
+summary(result_tentative_trainjmodel_sig1)
+
+#Remove- 8.entrepreneur from jobs
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$job!="entrepreneur",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$job!="entrepreneur",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#Remove-9. unemployed
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$job!="unemployed",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$job!="unemployed",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#Remove- 10. 'student' from jobs
+df.train_jmodel_onlysig <- df.train_jmodel_onlysig[df.train_jmodel_onlysig$job!="student",]
+result_tentative_trainjmodel_sig1 <- glm(formula = yact ~ age + balance + duration + campaign + previous +
+                                           job + marital + education + housing + loan + poutcome, 
+                                         data=df.train_jmodel_onlysig, family = binomial)
+df.test_jmodel_onlysig <- df.test_jmodel_onlysig[df.test_jmodel_onlysig$job!="student",]
+
+summary(result_tentative_trainjmodel_sig1)
+
+#Loading the final model into result_jmodel_sig1
+result_jmodel_sig1 <- result_tentative_trainjmodel_sig1
+class(result_jmodel_sig1)
+print(result_jmodel_sig1)
+plot(result_jmodel_sig1)
+
+# Variable importance #
+plot(result_jmodel_sig1)
+varImp(result_jmodel_sig1, scale = FALSE)
+# Variable importance #
+
+# Limitations of this model: Interactions are excluded; Linearity of independent variables is assumed #
+
+fit_jmodel <- lm(formula <- yact ~ age + balance + duration + campaign + previous +
+                   job + marital + education + housing + loan + poutcome, 
+                 data=df.train_jmodel_onlysig)
+vif(fit_jmodel)
+
+#vif not working again##
+
+# automated variable selection - Backward
+backward_jmodel <- step(result_jmodel_sig1, direction = 'backward')
+summary(backward_jmodel)
+
+# training probabilities and roc
+result_jmodel_probs <- df.train_jmodel_onlysig
+nrow(result_jmodel_probs)
+class(result_jmodel_probs)
+#Using the model made to make predictions in the column named 'prob'
+result_jmodel_probs$prob = predict(result_jmodel_sig1, type=c("response"))
+q_jmodel <- roc(y ~ prob, data = result_jmodel_probs)
+plot(q_jmodel)
+auc(q_jmodel)
+
+# how the categorical variables are distributed and are related with target outcome
+CrossTable(df.train_jmodel_onlysig$job, df.train_jmodel_onlysig$y)
+CrossTable(df.train_jmodel_onlysig$marital, df.train_jmodel_onlysig$y)
+CrossTable(df.train_jmodel_onlysig$education, df.train_jmodel_onlysig$y)
+CrossTable(df.train_jmodel_onlysig$default, df.train_jmodel_onlysig$y)
+CrossTable(df.train_jmodel_onlysig$housing, df.train_jmodel_onlysig$y)
+CrossTable(df.train_jmodel_onlysig$loan, df.train_jmodel_onlysig$y)
+CrossTable(df.train_jmodel_onlysig$poutcome, df.train_jmodel_onlysig$y)
+
+# numerical variable distribution
+hist(df.train_jmodel_onlysig$age)
+hist(df.train_jmodel_onlysig$balance)
+hist(df.train_jmodel_onlysig$duration)
+hist(df.train_jmodel_onlysig$campaign)
+hist(df.train_jmodel_onlysig$previous)
+
+# confusion matrix on j-model
+# to check the accuracy of the model made by removing all the insignificant variables
+result_jmodel_probs$ypred = ifelse(result_jmodel_probs$prob>=.5,'pred_yes','pred_no')
+table(result_jmodel_probs$ypred,result_jmodel_probs$y)
+
+#probabilities on test set
+df.test_jmodel_onlysig$prob = predict(result_jmodel_sig1, newdata = df.test_jmodel_onlysig, type=c("response"))
+
+# ks plot #
+ks_plot(actuals=result_jmodel_probs$y, predictedScores=result_jmodel_probs$ypred)
+
+
