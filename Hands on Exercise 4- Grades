@@ -1,0 +1,72 @@
+#Student grades in maths
+#download data from https://archive.ics.uci.edu/ml/datasets/student+performance datasets, unzip to a folder on your system and read the data.
+
+#Average grades of girls and boys
+#Combination of guardian and student gender with highest grades G1, G2, G3
+
+setwd("C:\\YYYYYY\\AMMA 2017\\Data\\data_2017")
+
+data1=read.table("student-mat.csv",sep=";",header=TRUE)
+data2=read.table("student-por.csv",sep=";",header=TRUE)
+
+data3=merge(data1,data2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+print(nrow(data3)) # 382 students
+View(data1)
+View(data3)
+class(data3)
+
+female_mean_grade=0
+male_mean_grade=0
+
+for(i in 1:length(data3$G3.x))
+{
+  if(data3$sex[i]=="F")
+  {  female_mean_grade = female_mean_grade + data3$G3.x[i] + data3$G3.y[i]
+  }
+  else
+  {
+    male_mean_grade = male_mean_grade + data3$G3.x[i] + data3$G3.y[i]
+  }
+}
+male_mean_grade = male_mean_grade/length(data3$G3.x)
+female_mean_grade = female_mean_grade/length(data3$G3.x)
+
+male_mean_grade
+female_mean_grade  ####Part 1 ends here
+
+
+## PARt 2
+
+max_G1 = max(data3$G1.x + data3$G1.y)
+max_G2 = max(data3$G2.x + data3$G2.y)
+max_G3 = max(data3$G3.x + data3$G3.y)
+
+for(j in 1:length(data3$G3.x))
+{  
+  if(data3$G1.x[j]+data3$G1.y[j] == max_G1)
+  {Guardian_G1 = data3$guardian.x[j]
+  Gender_G1 = data3$sex[j]
+  }
+}  
+Guardian_G1
+Gender_G1
+
+for(j in 1:length(data3$G3.x))
+{  
+  if(data3$G2.x[j]+data3$G2.y[j] == max_G1)
+  {Guardian_G2 = data3$guardian.x[j]
+  Gender_G2 = data3$sex[j]
+  }
+}  
+Guardian_G2
+Gender_G2
+
+for(j in 1:length(data3$G3.x))
+{  
+  if(data3$G3.x[j]+data3$G3.y[j] == max_G1)
+  {Guardian_G3 = data3$guardian.x[j]
+  Gender_G3 = data3$sex[j]
+  }
+}  
+Guardian_G3
+Gender_G3
