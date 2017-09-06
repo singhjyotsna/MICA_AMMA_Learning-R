@@ -1,0 +1,40 @@
+#From installed datasets package, find the dataset 'women' and find number of women with above average height but below average weight
+
+setwd("C:\\MICA\\Trimester 4\\AMMA\\2017_AMMA Data\\data_2017")
+
+install.packages("data.table")
+install.packages("datasets")
+View(women)
+average_height = mean(women$height)
+average_weight= mean(women$weight)
+n = 0
+for(i in 1:length(women$height))
+  if(women$height[i]>average_height & women$weight[i]<average_weight) 
+    n=n+1
+n
+
+####### or ...#######
+result=women[(women$height>average_height & women$weight<average_weight),]
+View(result)
+
+
+
+getwd()
+
+setwd("C:\\MICA\\Trimester 4\\AMMA\\2017_AMMA Data\\data_2017")
+
+input_popcity.df<-read.csv("Population city data.csv",header=T)
+View(input_popcity.df)
+
+
+
+######### or..... ##########
+install.packages("rvest")
+install.packages("xml2")
+library("xml2")
+library("rvest")
+city_link = "http://www.worldatlas.com/articles/the-biggest-cities-in-india.html"
+city_file=read_html(city_link)
+city_table=html_nodes(city_file,"table")
+city_table_final<-html_table(city_table[1],fill=TRUE)
+View(city_table_final)
